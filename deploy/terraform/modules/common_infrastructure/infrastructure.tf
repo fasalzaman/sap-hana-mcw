@@ -17,6 +17,11 @@ data "azurerm_resource_group" "resource-group" {
   name  = split("/", local.rg_arm_id)[4]
 }
 
+# Imports data of existing resource group
+data "azurerm_resource_group" "resource-group1" {
+  name  = "hanav2-sn-RG"
+}
+
 # VNETs ==========================================================================================================
 
 # Creates the management VNET
@@ -50,6 +55,13 @@ data "azurerm_virtual_network" "vnet-sap" {
   name                = split("/", local.vnet_sap_arm_id)[8]
   resource_group_name = split("/", local.vnet_sap_arm_id)[4]
 }
+
+# Imports data of existing JumpVM VNET
+data "azurerm_virtual_network" "vnet-jumpvm" {
+  name                = "vNet"
+  resource_group_name = "hanav2-sn-RG"
+}
+
 
 # SUBNETs ========================================================================================================
 
@@ -99,6 +111,27 @@ resource "azurerm_virtual_network_peering" "peering-sap-management" {
   allow_virtual_network_access = true
   allow_forwarded_traffic      = true
 }
+
+# Peers management VNET to JumpVM VNET
+resource "azurerm_virtual_network_peering" "peering-management-jumpvm" {
+  name                         = substr("${local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].resource_group_name : azurerm_virtual_network.vnet-management[0].resource_group_name}_${local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].name : azurerm_virtual_network.vnet-management[0].name}-${local.vnet-jumpvm_exists ? data.azurerm_virtual_network.vnet-jumpvm[0].resource_group_name : azurerm_virtual_network.vnet-jumpvm[0].resource_group_name}_${local.vnet-jumpvm_exists ? data.azurerm_virtual_network.vnet-jumpvm[0].name : azurerm_virtual_network.vnet-jumpvm[0].name}",0,80)
+  resource_group_name          = local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].resource_group_name : azurerm_virtual_network.vnet-management[0].resource_group_name
+  virtual_network_name         = local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].name : azurerm_virtual_network.vnet-management[0].name
+  remote_virtual_network_id    = local.vnet_sap_exists ? data.azurerm_virtual_network.vnet-sap[0].id : azurerm_virtual_network.vnet-sap[0].id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = true
+}
+
+# Peers JumpVM VNET to management VNET
+resource "azurerm_virtual_network_peering" "peering-sap-management" {
+  name                         = substr("${local.vnet-jumpvm_exists ? data.azurerm_virtual_network.vnet-jumpvm[0].resource_group_name : azurerm_virtual_network.vnet-jumpvm[0].resource_group_name}_${local.vnet-jumpvm_exists ? data.azurerm_virtual_network.vnet-jumpvm[0].name : azurerm_virtual_network.vnet-jumpvm[0].name}-${local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].resource_group_name : azurerm_virtual_network.vnet-management[0].resource_group_name}_${local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].name : azurerm_virtual_network.vnet-management[0].name}",0,80)
+  resource_group_name          = local.vnet_sap_exists ? data.azurerm_virtual_network.vnet-sap[0].resource_group_name : azurerm_virtual_network.vnet-sap[0].resource_group_name
+  virtual_network_name         = local.vnet_sap_exists ? data.azurerm_virtual_network.vnet-sap[0].name : azurerm_virtual_network.vnet-sap[0].name
+  remote_virtual_network_id    = local.vnet_mgmt_exists ? data.azurerm_virtual_network.vnet-management[0].id : azurerm_virtual_network.vnet-management[0].id
+  allow_virtual_network_access = true
+  allow_forwarded_traffic      = true
+}
+
 
 # STORAGE ACCOUNTS ===============================================================================================
 
